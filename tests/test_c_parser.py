@@ -4,7 +4,7 @@ import os, sys
 import io
 import unittest
 
-sys.path[0:0] = ['.', '..']
+sys.path[:0] = ['.', '..']
 
 from pycparser import c_parser
 from pycparser.c_ast import *
@@ -57,18 +57,12 @@ def expand_decl(decl):
             r.extend([decl.name, nested])
             return r
         elif typ == Typename: # for function parameters
-            if decl.quals:
-                return ['Typename', decl.quals, nested]
-            else:
-                return ['Typename', nested]
+            return ['Typename', decl.quals, nested] if decl.quals else ['Typename', nested]
         elif typ == ArrayDecl:
             dimval = decl.dim.value if decl.dim else ''
             return ['ArrayDecl', dimval, decl.dim_quals, nested]
         elif typ == PtrDecl:
-            if decl.quals:
-                return ['PtrDecl', decl.quals, nested]
-            else:
-                return ['PtrDecl', nested]
+            return ['PtrDecl', decl.quals, nested] if decl.quals else ['PtrDecl', nested]
         elif typ == Typedef:
             return ['Typedef', decl.name, nested]
         elif typ == FuncDecl:
@@ -100,9 +94,7 @@ def expand_init(init):
     elif typ == BinaryOp:
         return ['BinaryOp', expand_init(init.left), init.op, expand_init(init.right)]
     elif typ == Compound:
-        blocks = []
-        if init.block_items:
-            blocks = [expand_init(i) for i in init.block_items]
+        blocks = [expand_init(i) for i in init.block_items] if init.block_items else []
         return ['Compound', blocks]
     elif typ == Typename:
         return expand_decl(init)
@@ -658,7 +650,7 @@ class TestCParser_fundamentals(TestCParser_base):
             elif isinstance(n, Constant):
                 return ['Constant', n.type, n.value]
             else:
-                raise TypeError("Unexpected type " + n.__class__.__name__)
+                raise TypeError(f"Unexpected type {n.__class__.__name__}")
 
         e = """
             void foo() {
@@ -1855,11 +1847,7 @@ class TestCParser_whole_code(TestCParser_base):
             'preorder' appearance) in the chunk of code is as
             given.
         """
-        if isinstance(code, str):
-            parsed = self.parse(code)
-        else:
-            parsed = code
-
+        parsed = self.parse(code) if isinstance(code, str) else code
         cv = self.ConstantVisitor()
         cv.visit(parsed)
         self.assertEqual(cv.values, constants)
@@ -1868,11 +1856,7 @@ class TestCParser_whole_code(TestCParser_base):
         """ Asserts the number of references to the ID with
             the given name.
         """
-        if isinstance(code, str):
-            parsed = self.parse(code)
-        else:
-            parsed = code
-
+        parsed = self.parse(code) if isinstance(code, str) else code
         iv = self.IDNameCounter(name)
         iv.visit(parsed)
         self.assertEqual(iv.nrefs, num)
@@ -1880,11 +1864,7 @@ class TestCParser_whole_code(TestCParser_base):
     def assert_num_klass_nodes(self, code, klass, num):
         """ Asserts the amount of klass nodes in the code.
         """
-        if isinstance(code, str):
-            parsed = self.parse(code)
-        else:
-            parsed = code
-
+        parsed = self.parse(code) if isinstance(code, str) else code
         cv = self.NodeKlassCounter(klass)
         cv.visit(parsed)
         self.assertEqual(cv.n, num)

@@ -29,10 +29,7 @@ class TestCLexerNoErrors(unittest.TestCase):
         pass
 
     def type_lookup_func(self, typ):
-        if typ.startswith('mytype'):
-            return True
-        else:
-            return False
+        return bool(typ.startswith('mytype'))
 
     def setUp(self):
         self.clex = CLexer(self.error_func, lambda: None, lambda: None,
@@ -311,7 +308,7 @@ class TestCLexerNoErrors(unittest.TestCase):
         self.assertEqual(t2.lineno, 66)
         self.assertEqual(self.clex.filename, r'kwas\df.h')
 
-        for i in range(3):
+        for _ in range(3):
             t = self.clex.token()
 
         self.assertEqual(t.type, 'ID')
@@ -376,14 +373,14 @@ class TestCLexerNoErrors(unittest.TestCase):
         self.assertEqual(t4.type, 'PPPRAGMASTR')
         self.assertEqual(t4.value, 'helo me')
 
-        for i in range(3):
+        for _ in range(3):
             t = self.clex.token()
 
         t5 = self.clex.token()
         self.assertEqual(t5.type, 'PPPRAGMASTR')
         self.assertEqual(t5.value, 'omp parallel private(th_id)')
 
-        for i in range(5):
+        for _ in range(5):
             ta = self.clex.token()
             self.assertEqual(ta.type, 'PPPRAGMA')
             tb = self.clex.token()

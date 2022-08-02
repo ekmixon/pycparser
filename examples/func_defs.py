@@ -24,7 +24,7 @@ from pycparser import c_ast, parse_file
 # locations of function definitions.
 class FuncDefVisitor(c_ast.NodeVisitor):
     def visit_FuncDef(self, node):
-        print('%s at %s' % (node.decl.name, node.decl.coord))
+        print(f'{node.decl.name} at {node.decl.coord}')
 
 
 def show_func_defs(filename):
@@ -38,9 +38,5 @@ def show_func_defs(filename):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        filename  = sys.argv[1]
-    else:
-        filename = 'examples/c_files/memmgr.c'
-
+    filename = sys.argv[1] if len(sys.argv) > 1 else 'examples/c_files/memmgr.c'
     show_func_defs(filename)

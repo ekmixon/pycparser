@@ -29,10 +29,7 @@ def compare_asts(ast1, ast2):
     elif isinstance(ast1, (list, tuple)):
         if len(ast1) != len(ast2):
             return False
-        for i in range(len(ast1)):
-            if not compare_asts(ast1[i], ast2[i]):
-                return False
-        return True
+        return all(compare_asts(ast1[i], ast2[i]) for i in range(len(ast1)))
     elif isinstance(ast1, c_ast.Node):
         for attr in ast1.attr_names:
             attr1 = getattr(ast1, attr)
@@ -43,10 +40,11 @@ def compare_asts(ast1, ast2):
         children2 = ast2.children()
         if len(children1) != len(children2):
             return False
-        for i in range(len(children1)):
-            if not compare_asts(children1[i], children2[i]):
-                return False
-        return True
+        return all(
+            compare_asts(children1[i], children2[i])
+            for i in range(len(children1))
+        )
+
     else:
         return ast1 == ast2
 
@@ -450,8 +448,8 @@ class TestCtoC(unittest.TestCase):
     def test_nested_sizeof(self):
         src = '1'
         for _ in range(30):
-            src = 'sizeof(' + src + ')'
-        src = 'int x = ' + src + ';'
+            src = f'sizeof({src})'
+        src = f'int x = {src};'
         self._assert_ctoc_correct(src)
 
     def test_static_assert(self):

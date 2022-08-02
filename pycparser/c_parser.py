@@ -122,7 +122,7 @@ class CParser(PLYParser):
         # saw: int name;
         # If 'name' is not a key in _scope_stack[n] then 'name' was not defined
         # in this scope at all.
-        self._scope_stack = [dict()]
+        self._scope_stack = [{}]
 
         # Keeps track of the last token given to yacc (the lookahead token)
         self._last_yielded_token = None
@@ -142,7 +142,7 @@ class CParser(PLYParser):
         """
         self.clex.filename = filename
         self.clex.reset_lineno()
-        self._scope_stack = [dict()]
+        self._scope_stack = [{}]
         self._last_yielded_token = None
         return self.cparser.parse(
                 input=text,
@@ -152,7 +152,7 @@ class CParser(PLYParser):
     ######################--   PRIVATE   --######################
 
     def _push_scope(self):
-        self._scope_stack.append(dict())
+        self._scope_stack.append({})
 
     def _pop_scope(self):
         assert len(self._scope_stack) > 1
@@ -202,8 +202,7 @@ class CParser(PLYParser):
             Passed to the lexer for recognizing identifiers that
             are types.
         """
-        is_type = self._is_type_in_scope(name)
-        return is_type
+        return self._is_type_in_scope(name)
 
     def _get_yacc_lookahead_token(self):
         """ We need access to yacc's lookahead token in certain cases.
@@ -378,18 +377,10 @@ class CParser(PLYParser):
         if decls[0].get('bitsize') is not None:
             pass
 
-        # When redeclaring typedef names as identifiers in inner scopes, a
-        # problem can occur where the identifier gets grouped into
-        # spec['type'], leaving decl as None.  This can only occur for the
-        # first declarator.
         elif decls[0]['decl'] is None:
             if len(spec['type']) < 2 or len(spec['type'][-1].names) != 1 or \
-                    not self._is_type_in_scope(spec['type'][-1].names[0]):
-                coord = '?'
-                for t in spec['type']:
-                    if hasattr(t, 'coord'):
-                        coord = t.coord
-                        break
+                        not self._is_type_in_scope(spec['type'][-1].names[0]):
+                coord = next((t.coord for t in spec['type'] if hasattr(t, 'coord')), '?')
                 self._parse_error('Invalid declaration', coord)
 
             # Make this look as if it came from "direct_declarator:ID"
@@ -402,8 +393,6 @@ class CParser(PLYParser):
             # Remove the "new" type's name from the end of spec['type']
             del spec['type'][-1]
 
-        # A similar problem can occur where the declaration ends up looking
-        # like an abstract declarator.  Give it a name if this is the case.
         elif not isinstance(decls[0]['decl'], (
                 c_ast.Enum, c_ast.Struct, c_ast.Union, c_ast.IdentifierType)):
             decls_0_tail = decls[0]['decl']
@@ -475,10 +464,7 @@ class CParser(PLYParser):
         """ Given a token (either STRUCT or UNION), selects the
             appropriate AST class.
         """
-        if token == 'struct':
-            return c_ast.Struct
-        else:
-            return c_ast.Union
+        return c_ast.Struct if token == 'struct' else c_ast.Union
 
     ##
     ## Precedence and associativity of operators
@@ -509,10 +495,7 @@ class CParser(PLYParser):
         """ translation_unit_or_empty   : translation_unit
                                         | empty
         """
-        if p[1] is None:
-            p[0] = c_ast.FileAST([])
-        else:
-            p[0] = c_ast.FileAST(p[1])
+        p[0] = c_ast.FileAST([]) if p[1] is None else c_ast.FileAST(p[1])
 
     def p_translation_unit_1(self, p):
         """ translation_unit    : external_declaration
@@ -1012,10 +995,7 @@ class CParser(PLYParser):
         """ struct_declaration_list     : struct_declaration
                                         | struct_declaration_list struct_declaration
         """
-        if len(p) == 2:
-            p[0] = p[1] or []
-        else:
-            p[0] = p[1] + (p[2] or [])
+        p[0] = p[1] or [] if len(p) == 2 else p[1] + (p[2] or [])
 
     def p_struct_declaration_1(self, p):
         """ struct_declaration : specifier_qualifier_list struct_declarator_list_opt SEMI
@@ -1245,11 +1225,13 @@ class CParser(PLYParser):
         # and incorrectly interpreted as TYPEID.  We need to add the
         # parameters to the scope the moment the lexer sees LBRACE.
         #
-        if self._get_yacc_lookahead_token().type == "LBRACE":
-            if func.args is not None:
-                for param in func.args.params:
-                    if isinstance(param, c_ast.EllipsisParam): break
-                    self._add_identifier(param.name, param.coord)
+        if (
+            self._get_yacc_lookahead_token().type == "LBRACE"
+            and func.args is not None
+        ):
+            for param in func.args.params:
+                if isinstance(param, c_ast.EllipsisParam): break
+                self._add_identifier(param.name, param.coord)
 
         p[0] = self._type_modify_decl(decl=p[1], modifier=func)
 
@@ -1381,10 +1363,7 @@ class CParser(PLYParser):
         """ initializer : brace_open initializer_list_opt brace_close
                         | brace_open initializer_list COMMA brace_close
         """
-        if p[2] is None:
-            p[0] = c_ast.InitList([], self._token_coord(p, 1))
-        else:
-            p[0] = p[2]
+        p[0] = c_ast.InitList([], self._token_coord(p, 1)) if p[2] is None else p[2]
 
     def p_initializer_list(self, p):
         """ initializer_list    : designation_opt initializer
@@ -1602,23 +1581,18 @@ class CParser(PLYParser):
 
     def p_expression_statement(self, p):
         """ expression_statement : expression_opt SEMI """
-        if p[1] is None:
-            p[0] = c_ast.EmptyStatement(self._token_coord(p, 2))
-        else:
-            p[0] = p[1]
+        p[0] = c_ast.EmptyStatement(self._token_coord(p, 2)) if p[1] is None else p[1]
 
     def p_expression(self, p):
         """ expression  : assignment_expression
                         | expression COMMA assignment_expression
         """
-        if len(p) == 2:
-            p[0] = p[1]
-        else:
+        if len(p) != 2:
             if not isinstance(p[1], c_ast.ExprList):
                 p[1] = c_ast.ExprList([p[1]], p[1].coord)
 
             p[1].exprs.append(p[3])
-            p[0] = p[1]
+        p[0] = p[1]
 
     def p_parenthesized_compound_expression(self, p):
         """ assignment_expression : LPAREN compound_statement RPAREN """
@@ -1632,10 +1606,7 @@ class CParser(PLYParser):
         """ assignment_expression   : conditional_expression
                                     | unary_expression assignment_operator assignment_expression
         """
-        if len(p) == 2:
-            p[0] = p[1]
-        else:
-            p[0] = c_ast.Assignment(p[2], p[1], p[3], p[1].coord)
+        p[0] = p[1] if len(p) == 2 else c_ast.Assignment(p[2], p[1], p[3], p[1].coord)
 
     # K&R2 defines these as many separate rules, to encode
     # precedence and associativity. Why work hard ? I'll just use
@@ -1665,10 +1636,7 @@ class CParser(PLYParser):
         """ conditional_expression  : binary_expression
                                     | binary_expression CONDOP expression COLON conditional_expression
         """
-        if len(p) == 2:
-            p[0] = p[1]
-        else:
-            p[0] = c_ast.TernaryOp(p[1], p[3], p[5], p[1].coord)
+        p[0] = p[1] if len(p) == 2 else c_ast.TernaryOp(p[1], p[3], p[5], p[1].coord)
 
     def p_binary_expression(self, p):
         """ binary_expression   : cast_expression
@@ -1691,10 +1659,7 @@ class CParser(PLYParser):
                                 | binary_expression LAND binary_expression
                                 | binary_expression LOR binary_expression
         """
-        if len(p) == 2:
-            p[0] = p[1]
-        else:
-            p[0] = c_ast.BinaryOp(p[2], p[1], p[3], p[1].coord)
+        p[0] = p[1] if len(p) == 2 else c_ast.BinaryOp(p[2], p[1], p[3], p[1].coord)
 
     def p_cast_expression_1(self, p):
         """ cast_expression : unary_expression """
@@ -1762,7 +1727,7 @@ class CParser(PLYParser):
         """ postfix_expression  : postfix_expression PLUSPLUS
                                 | postfix_expression MINUSMINUS
         """
-        p[0] = c_ast.UnaryOp('p' + p[2], p[1], p[1].coord)
+        p[0] = c_ast.UnaryOp(f'p{p[2]}', p[1], p[1].coord)
 
     def p_postfix_expression_6(self, p):
         """ postfix_expression  : LPAREN type_name RPAREN brace_open initializer_list brace_close
@@ -1844,8 +1809,7 @@ class CParser(PLYParser):
         elif lCount > 2:
              raise ValueError('Constant cannot have more than two l/L suffix.')
         prefix = 'unsigned ' * uCount + 'long ' * lCount
-        p[0] = c_ast.Constant(
-            prefix + 'int', p[1], self._token_coord(p, 1))
+        p[0] = c_ast.Constant(f'{prefix}int', p[1], self._token_coord(p, 1))
 
     def p_constant_2(self, p):
         """ constant    : FLOAT_CONST
@@ -1853,13 +1817,12 @@ class CParser(PLYParser):
         """
         if 'x' in p[1].lower():
             t = 'float'
+        elif p[1][-1] in ('f', 'F'):
+            t = 'float'
+        elif p[1][-1] in ('l', 'L'):
+            t = 'long double'
         else:
-            if p[1][-1] in ('f', 'F'):
-                t = 'float'
-            elif p[1][-1] in ('l', 'L'):
-                t = 'long double'
-            else:
-                t = 'double'
+            t = 'double'
 
         p[0] = c_ast.Constant(
             t, p[1], self._token_coord(p, 1))
@@ -1929,8 +1892,9 @@ class CParser(PLYParser):
         #
         if p:
             self._parse_error(
-                'before: %s' % p.value,
-                self._coord(lineno=p.lineno,
-                            column=self.clex.find_tok_column(p)))
+                f'before: {p.value}',
+                self._coord(lineno=p.lineno, column=self.clex.find_tok_column(p)),
+            )
+
         else:
             self._parse_error('At end of input', self.clex.filename)

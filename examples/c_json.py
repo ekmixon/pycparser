@@ -74,7 +74,7 @@ def child_attrs_of(klass):
 
     """
     non_child_attrs = set(klass.attr_names)
-    all_attrs = set([i for i in klass.__slots__ if not RE_INTERNAL_ATTR.match(i)])
+    all_attrs = {i for i in klass.__slots__ if not RE_INTERNAL_ATTR.match(i)}
     return all_attrs - non_child_attrs
 
 
@@ -82,34 +82,26 @@ def to_dict(node):
     """ Recursively convert an ast into dict representation. """
     klass = node.__class__
 
-    result = {}
-
-    # Metadata
-    result['_nodetype'] = klass.__name__
+    result = {'_nodetype': klass.__name__}
 
     # Local node attributes
     for attr in klass.attr_names:
         result[attr] = getattr(node, attr)
 
     # Coord object
-    if node.coord:
-        result['coord'] = str(node.coord)
-    else:
-        result['coord'] = None
-
+    result['coord'] = str(node.coord) if node.coord else None
     # Child attributes
     for child_name, child in node.children():
-        # Child strings are either simple (e.g. 'value') or arrays (e.g. 'block_items[1]')
-        match = RE_CHILD_ARRAY.match(child_name)
-        if match:
+        if match := RE_CHILD_ARRAY.match(child_name):
             array_name, array_index = match.groups()
             array_index = int(array_index)
             # arrays come in order, so we verify and append.
             result[array_name] = result.get(array_name, [])
             if array_index != len(result[array_name]):
-                raise CJsonError('Internal ast error. Array {} out of order. '
-                    'Expected index {}, got {}'.format(
-                    array_name, len(result[array_name]), array_index))
+                raise CJsonError(
+                    f'Internal ast error. Array {array_name} out of order. Expected index {len(result[array_name])}, got {array_index}'
+                )
+
             result[array_name].append(to_dict(child))
         else:
             result[child_name] = to_dict(child)
@@ -174,12 +166,10 @@ def from_dict(node_dict):
 
     # Create a new dict containing the key-value pairs which we can pass
     # to node constructors.
-    objs = {}
-    for key, value in node_dict.items():
-        if key == 'coord':
-            objs[key] = _parse_coord(value)
-        else:
-            objs[key] = _convert_to_obj(value)
+    objs = {
+        key: _parse_coord(value) if key == 'coord' else _convert_to_obj(value)
+        for key, value in node_dict.items()
+    }
 
     # Use keyword parameters, which works thanks to beautifully consistent
     # ast Node initializers.

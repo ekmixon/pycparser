@@ -26,10 +26,7 @@ def expand_decl(decl):
             else:
                 return ['Decl', decl.name, nested]
         elif typ == Typename: # for function parameters
-            if decl.quals:
-                return ['Typename', decl.quals, nested]
-            else:
-                return ['Typename', nested]
+            return ['Typename', decl.quals, nested] if decl.quals else ['Typename', nested]
         elif typ == ArrayDecl:
             dimval = decl.dim.value if decl.dim else ''
             return ['ArrayDecl', dimval, nested]
@@ -52,7 +49,7 @@ class NodeVisitor(object):
     def visit(self, node):
         """ Visit a node.
         """
-        method = 'visit_' + node.__class__.__name__
+        method = f'visit_{node.__class__.__name__}'
         visitor = getattr(self, method, self.generic_visit)
         return visitor(node)
 
@@ -94,8 +91,10 @@ def memprofile():
 
     ast = parse_file('/tmp/197.c')
 
-    print('Memory usage: %s (kb)' %
-            resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+    print(
+        f'Memory usage: {resource.getrusage(resource.RUSAGE_SELF).ru_maxrss} (kb)'
+    )
+
 
     snapshot = tracemalloc.take_snapshot()
     print("[ tracemalloc stats ]")

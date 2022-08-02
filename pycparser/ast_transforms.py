@@ -84,13 +84,10 @@ def fix_switch_cases(switch_node):
             new_compound.block_items.append(child)
             _extract_nested_case(child, new_compound.block_items)
             last_case = new_compound.block_items[-1]
+        elif last_case is None:
+            new_compound.block_items.append(child)
         else:
-            # Other statements are added as children to the last case, if it
-            # exists.
-            if last_case is None:
-                new_compound.block_items.append(child)
-            else:
-                last_case.stmts.append(child)
+            last_case.stmts.append(child)
 
     switch_node.stmt = new_compound
     return switch_node
@@ -144,9 +141,9 @@ def _fix_atomic_specifiers_once(decl):
     parent = decl
     grandparent = None
     node = decl.type
-    while node is not None:
-        if isinstance(node, c_ast.Typename) and '_Atomic' in node.quals:
-            break
+    while node is not None and not (
+        isinstance(node, c_ast.Typename) and '_Atomic' in node.quals
+    ):
         try:
             grandparent = parent
             parent = node

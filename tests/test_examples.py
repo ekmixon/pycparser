@@ -24,9 +24,8 @@ class TestExamplesSucceed(unittest.TestCase):
                 rc, stdout = run_exe(path)
                 elapsed = time.time() - t1
                 if EMIT_ELAPSED_TIME:
-                    print('{}... elapsed: {}'.format(filename, elapsed))
-                self.assertEqual(
-                    rc, 0, 'example "{}" failed with stdout =\n{}'.format(filename, stdout))
+                    print(f'{filename}... elapsed: {elapsed}')
+                self.assertEqual(rc, 0, f'example "{filename}" failed with stdout =\n{stdout}')
 
 
 if __name__ == '__main__':

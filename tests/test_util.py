@@ -20,24 +20,17 @@ def cpp_supported():
 
 def cpp_path():
     """Path to cpp command."""
-    if platform.system() == 'Darwin':
-        return 'gcc'
-    return 'cpp'
+    return 'gcc' if platform.system() == 'Darwin' else 'cpp'
 
 
 def cpp_args(args=[]):
     """Turn args into a suitable format for passing to cpp."""
     if isinstance(args, str):
         args = [args]
-    if platform.system() == 'Darwin':
-        return ['-E'] + args
-    return args
+    return ['-E'] + args if platform.system() == 'Darwin' else args
 
 def _bytes2str(b):
-    if sys.version_info[0] == 3:
-        return b.decode('latin-1')
-    else:
-        return b
+    return b.decode('latin-1') if sys.version_info[0] == 3 else b
 
 def run_exe(exe_path, args=[], echo=False):
     """ Runs the given executable as a subprocess, given the
